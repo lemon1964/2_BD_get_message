@@ -1,0 +1,201 @@
+В папке Проекты/KidReeds создаем папку 2_BD_get_message
+Переходим в терминале в 2_BD_get_message
+cd /путь к папке 2_BD_get_message
+
+Внутри папки создадем виртуальное окружение
+python3.8 -m venv venv
+source venv/bin/activate
+python --version
+
+Устанавливаем джанго
+pip install django
+pip install --upgrade pip
+
+Создаем файл requirements.txt в котором будут храниться все зависимости
+pip freeze > requirements.txt
+Обновление зависимостей
+pip install -r requirements.txt
+
+Создаем проект
+django-admin startproject proj
+cd proj
+
+Создаем приложение
+python manage.py startapp pril
+
+Открываем в пайчарме проект proj
+Успеваем в открывшемся окошке поменять Пайтон 3.9 на 3.8
+Ждем переустановки внизу справа
+В терминале пайчарма переходим в папку проекта 2_BD_get_message
+cd ..
+Активируем Вирт окружение
+source venv/bin/activate
+Переходим в папку проекта proj
+cd proj
+Проверяем версию
+python --version
+-----------------------
+В файле settings
+import os 
+
+INSTALLED_APPS = [
+    'pril'
+]
+
+#<- добавь русскую локализацию
+LANGUAGE_CODE = 'ru-ru'
+
+#<- добавь свой часовой пояс
+TIME_ZONE = 'Europe/Moscow'
+
+STATIC_URL = 'static/'
+
+MEDIA_URL = '/media/' #<- добавьте путь к папке с медифайлами
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # и путь до нее
+------------------------------
+создадим миграции и суперпользователя
+python manage.py migrate
+python manage.py createsuperuser
+lemon
+lemon@lemon.com
+12345
+12345
+y
+---------------------
+Прописываем ДебагКонфигуратор	runserver
+Запуск проекта нажимаем жука	OK
+--------------
+Установка Django Rest Framework
+pip install djangorestframework
+pip install djangorestframework-simplejwt
+pip install django-cors-headers
+-----------------
+идем в файл api/settings.py и добавляем настройки для всего что мы установили
+from datetime import timedelta #<- импортируйте это
+
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'rest_framework', #<- добавьте это
+    'core'
+]
+
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware', #<- добавьте это именно сюда
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+
+# ниже настройки JWT токена
+LOGIN_URL = "/api/v1/signin"
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=2),
+}
+
+CORS_ORIGIN_WHITELIST = ["http://localhost:3000", "http://127.0.0.1:3000"]
+# конец настроек JWT токена
+
+
+#настройки rest framework
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework_simplejwt.authentication.JWTAuthentication"],
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "TEST_REQUEST_DEFAULT_FORMAT": "json",
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.DjangoModelPermissions",),
+}
+--------------------------
+Разберемся с аутентификацией
+откроем файл proj/urls.py
+from django.contrib import admin
+from django.urls import path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path("api/token/", TokenObtainPairView.as_view(), name="token"),
+    path("api/refresh_token/", TokenRefreshView.as_view(), name="refresh_token"),
+]
+-------------------------
+Работа с Моделью
+Приложение DB Brouser for SQLite установлено
+Создаем class MessageFront(models.Model), копируем из проекта 1_BD_get_message
+
+python3 manage.py makemigrations 
+python3 manage.py migrate
+------
+Из курса:
+В REST API наши модели будут представляться при помощи HTTP запросов при помощи методов GET, POST, PUT или DELETE для извлечения, создания, обновления или удаления объектов. Результат работы HTTP запроса будет обуславливаться статус кодами, например статус код 2XX для успеха, 4XX для ошибок и т. д.
+Самый распространенный способ обмена данными в RESTful API это JSON.
+Так как наши данные будут представляться в формате JSON, то нам нужно знать как достать данные из БД, а затем преобразовать их в формат JSON. Этот процесс называется сериализацией. Обратный процесс, когда мы отправляем, например при помощи метода POST, данные в систему, называется десериализацией - т.е. преобразование JSON в формат для занесения данных в БД.
+В общем мы будем преобразовывать экземпляры моделей в JSON и наоборот
+----------
+Создание сериализатора
+внутри нашего приложения создадим файл pril/serializers.py
+Вставим код из чатжпт	импорты и class MessageSerializer(serializers.ModelSerializer)
+-------------------
+Создаем views.py	 и url 
+Вставим код из чатжпт
+Во views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .serializers import MessageSerializer
+from .models import MessageFront
+
+class MessageView(APIView):
+    queryset = MessageFront.objects.all()
+
+    def post(self, request):
+        serializer = MessageSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)	
+-------------------
+Открываем Postman, добавляем название проекта, настраиваем по курсу, формируем запрос, отправляем json записи на 
+http://127.0.0.1:8000/messages/
+Проверяем появление записей в DB Brouser for SQLite
+Работает!
+---------------------
+Выкладка в гитхаб 
+Терминал - в папке 2_BD_get_message  	
+git init .
+Создаем .gitignore
+nano .gitignore
+
+.idea
+/venv
+		Ctrl + o и Enter сохранениеç
+		Ctrl + x и Y и Enter выход
+		выйти из редактора - напечатайте :qa и нажмите enter.
+cat .gitignore
+
+git add .
+git commit -m '2 commit'
+
+Гитхаб
+Создаем репозитарий 2_BD_get_message
+git remote add origin git@github.com:lemon1964/2_BD_get_message.git
+git branch -M main
+git push -u origin main
+
+https://github.com/lemon1964/2_BD_get_message
+
+
+
+
+
+
+
